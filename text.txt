@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# Define UTC time range that corresponds to 2025-05-01 00:00 to 23:59 CST
+start_utc="2025-05-01 06:00:00"
+end_utc="2025-05-02 05:59:59"
+
+# Files to process
+files="u_ex250501 u_ex250502"
+
+# Filter and convert
+cat $files | \
+grep -E 'ooo|sent' | \
+awk -v start="$start_utc" -v end="$end_utc" '
+function utc_to_epoch(date_str) {
+  cmd = "date -d \"" date_str "\" +%s";
+  cmd | getline epoch;
+  close(cmd);
+  return epoch;
+}
+
+function convert_to_cst(utc_date, utc_time,   cst_date) {
+  cmd = "date -u -d \"" utc_date " " utc_time " UTC -6 hours\" \"+%Y-%m-%d %H:%M:%S\"";
+  cmd | getline cst_date;
+  close(cmd);
+  return cst_date;
+}
+
+{
+  timestamp = $1 " " $2;
+  t_epoch = utc_to_epoch(timestamp);
+  s_epoch = utc_to_epoch(start);
+  e_epoch = utc_to_epoch(end);
+
+  if (t_epoch >= s_epoch && t_epoch <= e_epoch) {
+    cst_ts = convert_to_cst($1, $2);
+    $1 = ""; $2 = ""; # Remove original UTC date/time
+    print cst_ts $0;
+  }
+}'
